@@ -12,6 +12,10 @@
 
 ### Version History
 
+## [1.0.7] - 2026-04-25
+### Changed
+- Version bump
+
 ## [1.0.6]
 ### Fixed
 - Fixed the issue of `NotOpenSSLWarning` warning

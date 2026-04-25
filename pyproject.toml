@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "aicommitter"
-version = "1.0.6"
+version = "1.0.7"
 description = "AI powered commit message helper"
 authors = [{name = "ifaakash"}]
 requires-python = ">=3.7.9"
