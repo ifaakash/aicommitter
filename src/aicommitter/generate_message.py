@@ -1,8 +1,12 @@
 import os
 import subprocess
+import warnings
 from enum import Enum
 from subprocess import DEVNULL
 from importlib import resources
+from urllib3.exceptions import NotOpenSSLWarning
+
+warnings.filterwarnings("ignore", category=NotOpenSSLWarning)
 
 import requests
 from requests.adapters import HTTPAdapter
@@ -11,8 +15,6 @@ import typer
 from rich import print
 from rich.panel import Panel
 from dotenv import load_dotenv
-import warnings
-from urllib3.exceptions import NotOpenSSLWarning
 
 load_dotenv(override=True)
 
@@ -20,7 +22,18 @@ app = typer.Typer(
     help="AI Commit Message Generator. Reads staged Git diff and suggests a message"
 )
 
-warnings.filterwarnings("ignore", category=NotOpenSSLWarning)
+def _version_callback(value: bool):
+    if value:
+        typer.echo("aicommitter 1.0.8")
+        raise typer.Exit()
+
+@app.callback()
+def _main(
+    version: bool = typer.Option(
+        None, "--version", "-v", callback=_version_callback, is_eager=True, help="Show version and exit."
+    )
+):
+    pass
 
 SESSION = requests.Session()
 retries = Retry(

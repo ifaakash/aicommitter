@@ -12,6 +12,12 @@
 
 ### Version History
 
+## [1.0.8] - 2026-04-25
+### Fixed
+- Fixed `NotOpenSSLWarning` by suppressing it before `urllib3` is imported
+### Added
+- Added `--version` / `-v` flag to CLI
+
 ## [1.0.7] - 2026-04-25
 ### Changed
 - Version bump
