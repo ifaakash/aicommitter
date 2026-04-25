@@ -4,8 +4,8 @@
 ![GitHub last commit](https://img.shields.io/github/last-commit/ifaakash/ai_commit)
 ![Python](https://img.shields.io/badge/python-3.8+-blue.svg)
 ![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)
-![Latest Release](https://img.shields.io/badge/Release-1.0.4-orange)
-![PyPi](https://img.shields.io/pypi/v/aicommitter)
+![Latest Release](https://img.shields.io/badge/Release-1.0.7-orange)
+[![PyPi](https://img.shields.io/pypi/v/aicommitter)](https://pypi.org/project/aicommitter/)
 [![Codacy Badge](https://app.codacy.com/project/badge/Grade/91b5d92dde4d480b9351b0212fbf725f)](https://app.codacy.com/gh/ifaakash/ai_commit/dashboard?utm_source=gh&utm_medium=referral&utm_content=&utm_campaign=Badge_grade)
 <!--[![Latest Release](https://img.shields.io/badge/Latest-Release-blue?style=for-the-badge)](https://libraries.io/pypi/aicommitter)-->
 
@@ -45,9 +45,12 @@ For every commit after setup:
 
 ## Changelog
 
-See [CHANGELOG.md](CHANGELOG.md) for a [detailed history](https://libraries.io/pypi/aicommitter) of changes
+See [CHANGELOG.md](CHANGELOG.md) for a [detailed history](https://libraries.io/pypi/aicommitter) of changes. View on [PyPI](https://pypi.org/project/aicommitter/).
 
 ## Latest Release
+
+**Version 1.0.7** (2026-04-25)
+- Version bump
 
 **Version 1.0.6** (2026-01-25)
 - Updated the version of aicommitter to `1.0.6`
