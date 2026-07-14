@@ -49,6 +49,9 @@ See [CHANGELOG.md](CHANGELOG.md) for a [detailed history](https://libraries.io/p
 
 ## Latest Release
 
+**Version 1.0.9** (2026-04-25)
+- Add `y` flag to auto approve the commit message
+
 **Version 1.0.8** (2026-04-25)
 - Fixed `NotOpenSSLWarning` by suppressing it before `urllib3` is imported
 - Added `--version` / `-v` flag to CLI
