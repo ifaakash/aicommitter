@@ -49,6 +49,9 @@ See [CHANGELOG.md](CHANGELOG.md) for a [detailed history](https://libraries.io/p
 
 ## Latest Release
 
+**Version 1.0.9** (2026-04-25)
+- Add `y` flag to auto approve the commit message
+
 **Version 1.0.8** (2026-04-25)
 - Fixed `NotOpenSSLWarning` by suppressing it before `urllib3` is imported
 - Added `--version` / `-v` flag to CLI
@@ -80,3 +83,9 @@ See [CHANGELOG.md](CHANGELOG.md) for a [detailed history](https://libraries.io/p
 - Increased the session timeout to `180s` for `DEEPSEEK` and `GEMINI`
 
 For full details, see the [CHANGELOG](CHANGELOG.md).
+
+```bash
+aicommitter generate -c -y        # generate, commit without confirmation
+aicommitter generate -P -y        # generate, commit without confirmation, push to current branch
+aicommitter generate --push       # generate, confirm commit, then push
+```
