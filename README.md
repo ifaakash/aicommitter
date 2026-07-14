@@ -83,3 +83,9 @@ See [CHANGELOG.md](CHANGELOG.md) for a [detailed history](https://libraries.io/p
 - Increased the session timeout to `180s` for `DEEPSEEK` and `GEMINI`
 
 For full details, see the [CHANGELOG](CHANGELOG.md).
+
+```bash
+aicommitter generate -c -y        # generate, commit without confirmation
+aicommitter generate -P -y        # generate, commit without confirmation, push to current branch
+aicommitter generate --push       # generate, confirm commit, then push
+```
