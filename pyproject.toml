@@ -7,7 +7,7 @@ name = "aicommitter"
 version = "1.0.9"
 description = "AI powered commit message helper"
 authors = [{name = "ifaakash"}]
-requires-python = ">=3.7.9"
+requires-python = ">=3.8"
 readme = "README.md"
 license = {text = "MIT"}
 keywords = ["git", "commit", "ai", "devops", "cli", "commit message"]

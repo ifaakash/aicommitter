@@ -4,6 +4,7 @@ import warnings
 from enum import Enum
 from subprocess import DEVNULL
 from importlib import resources
+from importlib.metadata import version as pkg_version
 from urllib3.exceptions import NotOpenSSLWarning
 
 warnings.filterwarnings("ignore", category=NotOpenSSLWarning)
@@ -24,7 +25,7 @@ app = typer.Typer(
 
 def _version_callback(value: bool):
     if value:
-        typer.echo("aicommitter 1.0.8")
+        typer.echo(f"aicommitter {pkg_version('aicommitter')}")
         raise typer.Exit()
 
 @app.callback()
@@ -257,6 +258,18 @@ def cli_generate(
         "-c",
         help="Immediately commit the suggested message if confirmed.",
     ),
+    yes: bool = typer.Option(
+        False,
+        "--yes",
+        "-y",
+        help="Skip confirmation and commit immediately.",
+    ),
+    push: bool = typer.Option(
+        False,
+        "--push",
+        "-P",
+        help="Push to current branch after committing.",
+    ),
     provider: str = typer.Option(
         None, "--provider", "-p", help="Explicitly choose 'deepseek' or 'gemini'."
     ),
@@ -268,6 +281,9 @@ def cli_generate(
     Generates a Conventional Commit message.
     Automatically detects DEEPSEEK_API_KEY or GEMINI_API_KEY.
     """
+
+    if push:
+        commit = True
 
     diff = get_diff()
     if not diff.strip():
@@ -354,7 +370,7 @@ def cli_generate(
     typer.echo("=" * 50 + "\n")
 
     if commit:
-        confirm = typer.confirm("Do you want to use this message to commit?")
+        confirm = yes or typer.confirm("Do you want to use this message to commit?")
         if confirm:
             try:
                 subprocess.run(["git", "commit", "-m", commit_message], check=True)
@@ -364,6 +380,19 @@ def cli_generate(
             except subprocess.CalledProcessError:
                 typer.echo("Error: Git commit failed.", err=True)
                 raise typer.Exit(code=1)
+            if push:
+                try:
+                    branch = subprocess.run(
+                        ["git", "rev-parse", "--abbrev-ref", "HEAD"],
+                        capture_output=True, text=True, check=True
+                    ).stdout.strip()
+                    subprocess.run(["git", "push", "origin", branch], check=True)
+                    typer.echo(
+                        typer.style(f"Pushed to origin/{branch}!", fg=typer.colors.GREEN, bold=True)
+                    )
+                except subprocess.CalledProcessError:
+                    typer.echo("Error: Git push failed.", err=True)
+                    raise typer.Exit(code=1)
         else:
             typer.echo("Commit aborted by user.")
             raise typer.Exit()
