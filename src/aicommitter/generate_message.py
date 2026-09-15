@@ -43,7 +43,7 @@ retries = Retry(
 SESSION.mount("https://", HTTPAdapter(max_retries=retries))
 
 DEFAULT_DEEPSEEK_MODEL = "deepseek-chat"
-DEFAULT_GEMINI_MODEL = "gemini-1.5-flash"
+DEFAULT_GEMINI_MODEL = "gemini-2.5-flash-lite"
 
 HOOK_SCRIPT_CONTENT = """#!/usr/bin/env bash
 COMMIT_MSG_FILE=$1
