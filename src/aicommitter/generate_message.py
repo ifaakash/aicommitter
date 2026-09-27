@@ -16,9 +16,17 @@ from urllib3.util.retry import Retry
 import typer
 from rich import print
 from rich.panel import Panel
-from dotenv import load_dotenv
+from dotenv import load_dotenv, dotenv_values, find_dotenv
 
-load_dotenv(override=True)
+# Snapshot the shell's own values before .env can override them, so doctor can
+# report when a .env entry is shadowing an exported key.
+_PRE_DOTENV_ENV = {
+    name: os.getenv(name) for name in ("DEEPSEEK_API_KEY", "GEMINI_API_KEY")
+}
+# find_dotenv() resolves relative to this file's directory tree, not the CWD,
+# so an editable install always picks up the repo's own .env.
+DOTENV_PATH = find_dotenv()
+load_dotenv(DOTENV_PATH, override=True)
 
 app = typer.Typer(
     help="AI Commit Message Generator. Reads staged Git diff and suggests a message"
@@ -157,6 +165,203 @@ def install_hook():
             err=True,
         )
         raise typer.Exit(code=1)
+
+
+PROVIDER_KEYS = {
+    AIProvider.DEEPSEEK: {
+        "env": "DEEPSEEK_API_KEY",
+        "label": "DeepSeek",
+        "console": "https://platform.deepseek.com/api_keys",
+        "models_url": "https://api.deepseek.com/models",
+    },
+    AIProvider.GEMINI: {
+        "env": "GEMINI_API_KEY",
+        "label": "Gemini",
+        "console": "https://aistudio.google.com/api-keys",
+        "models_url": "https://generativelanguage.googleapis.com/v1beta/models",
+    },
+}
+
+
+def _mask(value: str) -> str:
+    """Renders a key for display without disclosing it."""
+    if len(value) <= 8:
+        return "*" * len(value)
+    return f"{value[:3]}{'*' * 6}{value[-4:]}"
+
+
+def _key_source(env_name: str) -> str:
+    """Reports which .env file or environment a key actually came from.
+
+    load_dotenv(override=True) means a .env value silently beats an exported
+    one, so the distinction matters when diagnosing a stale key.
+    """
+    if DOTENV_PATH:
+        try:
+            if env_name in dotenv_values(DOTENV_PATH):
+                return f".env ({DOTENV_PATH})"
+        except OSError:
+            pass
+    return "shell environment"
+
+
+def _is_shadowing(env_name: str) -> bool:
+    """True when a .env entry replaced a different exported value."""
+    previous = _PRE_DOTENV_ENV.get(env_name)
+    return bool(previous) and previous != os.getenv(env_name)
+
+
+def _probe_key(provider: AIProvider, api_key: str) -> str:
+    """Asks the provider whether the key is actually accepted."""
+    meta = PROVIDER_KEYS[provider]
+    try:
+        if provider == AIProvider.DEEPSEEK:
+            response = SESSION.get(
+                meta["models_url"],
+                headers={"Authorization": f"Bearer {api_key}"},
+                timeout=30,
+            )
+        else:
+            response = SESSION.get(
+                meta["models_url"], params={"key": api_key}, timeout=30
+            )
+    except requests.exceptions.RequestException as e:
+        return f"unreachable ({e.__class__.__name__})"
+
+    if response.status_code == 200:
+        return "accepted"
+    # A plain model-list GET only fails this way when the key is unacceptable:
+    # DeepSeek answers 401, Gemini answers 400 for a malformed key and 403 for
+    # one that is well formed but unauthorised.
+    if response.status_code in (400, 401, 403):
+        return f"REJECTED (HTTP {response.status_code} - key invalid or revoked)"
+    return f"unexpected HTTP {response.status_code}"
+
+
+def _print_setup_help() -> None:
+    """Prints how to obtain and set a key."""
+    typer.echo("\nTo set one up, get a key from either provider:\n")
+    for meta in PROVIDER_KEYS.values():
+        typer.echo(f"  {meta['label']:<9} {meta['console']}")
+
+    typer.echo("\nThen make it available. For the current shell only:\n")
+    typer.echo('  export DEEPSEEK_API_KEY="sk-..."')
+
+    typer.echo("\nTo persist it across sessions (zsh, the macOS default):\n")
+    typer.echo('  echo \'export DEEPSEEK_API_KEY="sk-..."\' >> ~/.zshrc')
+    typer.echo("  source ~/.zshrc")
+    typer.echo("\n  ...or ~/.bashrc if you use bash.")
+
+    typer.echo("\nOr per project, in a .env file at the repository root:\n")
+    typer.echo("  echo 'DEEPSEEK_API_KEY=sk-...' >> .env")
+    typer.echo(
+        "\nNote: a .env value overrides an exported shell variable, so remove a "
+        "stale\nkey from .env if it is shadowing a working one."
+    )
+    typer.echo("\nRe-run 'aicommitter doctor' to confirm.")
+
+
+@app.command(name="doctor")
+def doctor(
+    live: bool = typer.Option(
+        False,
+        "--live",
+        "-l",
+        help="Also ask each provider whether the key is actually accepted.",
+    )
+):
+    """Checks whether an AI provider API key is configured."""
+
+    typer.echo("\nProvider keys")
+
+    found = {}
+    for provider, meta in PROVIDER_KEYS.items():
+        env_name = meta["env"]
+        value = os.getenv(env_name)
+        if value:
+            found[provider] = value
+            typer.echo(
+                f"  {env_name:<18} "
+                + typer.style("set", fg=typer.colors.GREEN, bold=True)
+                + f"      {_mask(value)}  (from {_key_source(env_name)})"
+            )
+            if _is_shadowing(env_name):
+                typer.echo(
+                    "  "
+                    + typer.style(
+                        f"{'':<18} note: this .env entry overrides the "
+                        f"{env_name} exported in your shell",
+                        fg=typer.colors.YELLOW,
+                    )
+                )
+        else:
+            typer.echo(
+                f"  {env_name:<18} "
+                + typer.style("missing", fg=typer.colors.YELLOW)
+            )
+
+    if not found:
+        typer.echo(
+            "\n"
+            + typer.style(
+                "No API key found - aicommitter cannot generate messages.",
+                fg=typer.colors.RED,
+                bold=True,
+            )
+        )
+        _print_setup_help()
+        raise typer.Exit(code=1)
+
+    # Mirrors the resolution order in cli_generate(): DeepSeek wins a tie.
+    active = (
+        AIProvider.DEEPSEEK if AIProvider.DEEPSEEK in found else AIProvider.GEMINI
+    )
+    default_model = (
+        DEFAULT_DEEPSEEK_MODEL
+        if active == AIProvider.DEEPSEEK
+        else DEFAULT_GEMINI_MODEL
+    )
+    typer.echo(
+        f"\nActive provider\n  {PROVIDER_KEYS[active]['label']} ({default_model})"
+    )
+    if len(found) > 1:
+        typer.echo(
+            "  Both keys are set; DeepSeek takes priority. "
+            "Use --provider gemini to switch."
+        )
+
+    if live:
+        typer.echo("\nLive key check")
+        rejected = False
+        for provider, value in found.items():
+            result = _probe_key(provider, value)
+            colour = (
+                typer.colors.GREEN if result == "accepted" else typer.colors.RED
+            )
+            rejected = rejected or result != "accepted"
+            typer.echo(
+                f"  {PROVIDER_KEYS[provider]['label']:<9} "
+                + typer.style(result, fg=colour)
+            )
+        if rejected:
+            typer.echo(
+                "\n"
+                + typer.style(
+                    "A key is set but not usable. Replace it, then re-run with --live.",
+                    fg=typer.colors.RED,
+                )
+            )
+            _print_setup_help()
+            raise typer.Exit(code=1)
+    else:
+        typer.echo(
+            "\nKeys are present but not verified. "
+            "Run 'aicommitter doctor --live' to test them."
+        )
+
+    typer.echo(
+        "\n" + typer.style("Ready to generate.", fg=typer.colors.GREEN, bold=True)
+    )
 
 
 def get_diff() -> str:

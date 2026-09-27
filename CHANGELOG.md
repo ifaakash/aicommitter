@@ -1,8 +1,23 @@
-![Version](https://img.shields.io/badge/version-1.2.0-blue)
+![Version](https://img.shields.io/badge/version-1.3.0-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Status](https://img.shields.io/badge/status-active-success)
 
 ### Version History
+
+## [1.3.0] - 2026-09-28
+### Added
+- `aicommitter doctor` — checks whether a provider API key is configured, shows a
+  masked value, reports whether it came from `.env` or the shell, names the
+  provider that will be used, and prints setup instructions when none is found
+- `doctor --live` asks each provider's model-list endpoint whether the key is
+  actually accepted, catching keys that are present but expired or revoked
+- `doctor` warns when a `.env` entry is shadowing an exported key, and exits
+  non-zero when no usable key is found so it can gate a script or CI step
+### Changed
+- `.env` resolution is now explicit via `DOTENV_PATH`, so the file that supplied
+  a key can be named in diagnostics
+- Bundled `docs.md` now covers `doctor` and uses the correct `aicommitter`
+  command name (was `aicommit`)
 
 ## [1.2.0] - 2026-09-28
 ### Added

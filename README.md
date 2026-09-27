@@ -4,7 +4,7 @@
 ![GitHub last commit](https://img.shields.io/github/last-commit/ifaakash/ai_commit)
 ![Python](https://img.shields.io/badge/python-3.8+-blue.svg)
 ![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)
-![Latest Release](https://img.shields.io/badge/Release-1.2.0-orange)
+![Latest Release](https://img.shields.io/badge/Release-1.3.0-orange)
 [![PyPi](https://img.shields.io/pypi/v/aicommitter)](https://pypi.org/project/aicommitter/)
 [![Codacy Badge](https://app.codacy.com/project/badge/Grade/91b5d92dde4d480b9351b0212fbf725f)](https://app.codacy.com/gh/ifaakash/ai_commit/dashboard?utm_source=gh&utm_medium=referral&utm_content=&utm_campaign=Badge_grade)
 <!--[![Latest Release](https://img.shields.io/badge/Latest-Release-blue?style=for-the-badge)](https://libraries.io/pypi/aicommitter)-->
@@ -22,7 +22,20 @@
    export DEEPSEEK_API_KEY="sk-xxxxxxxxxxxxxxxxxxxxxxxx"
    ```
 
-3. **Install the Git Hook in your repository**  
+3. **Verify the key is picked up**  
+   Confirms a key is configured before you rely on it, and prints setup instructions if not<br>
+   ```bash
+   aicommitter doctor
+   ```
+   It reports which keys are set, **where each one came from**, and which provider will be used.
+   Add `--live` to ask the provider whether the key is actually accepted — a key can be present
+   but expired or revoked, which otherwise only surfaces as an `HTTP 401` at commit time:
+   ```bash
+   aicommitter doctor --live
+   ```
+   Exits non-zero when no usable key is found, so it can gate a setup script or CI step.
+
+4. **Install the Git Hook in your repository**  
    Navigate to the root of any Git project and run the install command<br>
    ```bash
    aicommitter install
@@ -31,13 +44,13 @@
 ### Daily Usage
 For every commit after setup:
 
-4. **Stage your changes**  
+5. **Stage your changes**  
    Add all or selected changes to the staging area<br>
    ```bash
    git add .
    ```
 
-5. **Commit!**  
+6. **Commit!**  
    Commit directly with confirmation<br>
    ```bash
    aicommitter generate --commit
@@ -162,6 +175,9 @@ rm -rf .venv
 See [CHANGELOG.md](CHANGELOG.md) for a [detailed history](https://libraries.io/pypi/aicommitter) of changes. View on [PyPI](https://pypi.org/project/aicommitter/).
 
 ## Latest Release
+
+**Version 1.3.0** (2026-09-28)
+- Added `aicommitter doctor` to check API key configuration, with `--live` to verify the key against the provider
 
 **Version 1.2.0** (2026-09-28)
 - Unified the Conventional Commit prompt across DeepSeek and Gemini

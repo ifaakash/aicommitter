@@ -17,6 +17,8 @@ aicommitter generate -c -y        # generate and commit without confirmation
 aicommitter generate -P -y        # commit without confirmation, then push to current branch
 aicommitter generate -p gemini    # force provider
 aicommitter generate -m <model>   # override model name
+aicommitter doctor                # check API key setup; exits 1 if unusable
+aicommitter doctor --live         # also verify the key against the provider
 aicommitter install               # write prepare-commit-msg hook into $GIT_DIR/hooks
 aicommitter docs                  # print bundled resources/docs.md in a rich panel
 aicommitter --version
@@ -49,6 +51,8 @@ Single module, no internal package structure:
 
 Explicit `--provider` requires the matching env var and errors out if absent. Otherwise auto-detect: `DEEPSEEK_API_KEY` wins over `GEMINI_API_KEY` when both are set (prints an info line). No key at all → exit 1. Defaults: `deepseek-chat`, `gemini-2.5-flash-lite`.
 
+`doctor` mirrors this same order and must be kept in step with `cli_generate()` if it changes. Provider env var names, consoles, and probe URLs live in one table, `PROVIDER_KEYS` — add a provider there, not inline.
+
 ### Flag coupling
 
 `--push` implies `--commit`. `--yes` only bypasses the confirm prompt — without `--commit`/`--push` it does nothing, since the commit branch is never entered.
@@ -68,7 +72,7 @@ Add format rules to `build_prompt()` (what the model should do) and repairs to `
 ## Gotchas
 
 - **Import order is load-bearing.** Lines 1–12 of `generate_message.py` call `warnings.filterwarnings(..., NotOpenSSLWarning)` *before* `import requests`. Moving the `requests`/`typer` imports above the filter re-introduces the LibreSSL warning on macOS system Python — this was shipped as a bug fix twice.
-- **`load_dotenv(override=True)`** means a `.env` in the working directory silently beats exported shell env vars. There is an untracked `.env` in this repo.
+- **`load_dotenv(override=True)`** means a `.env` value silently beats an exported shell var. Worse, `find_dotenv()` resolves relative to **`generate_message.py`'s own directory tree, not your CWD** — so in an editable install the repo's untracked `.env` applies no matter where you run `aicommitter`. That `.env` currently holds a DeepSeek key returning HTTP 401; `aicommitter doctor` names the exact file and flags the shadowing.
 - **Retries are HTTPS-only.** The `Retry` adapter is mounted on `https://` alone (3 retries, backoff 1, on 429/500/502/503/504); request timeout is 120s.
 
 ## Version Management
