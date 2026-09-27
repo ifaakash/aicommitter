@@ -1,4 +1,5 @@
 import os
+import re
 import subprocess
 import warnings
 from enum import Enum
@@ -44,6 +45,30 @@ SESSION.mount("https://", HTTPAdapter(max_retries=retries))
 
 DEFAULT_DEEPSEEK_MODEL = "deepseek-chat"
 DEFAULT_GEMINI_MODEL = "gemini-2.5-flash-lite"
+
+CONVENTIONAL_TYPES = (
+    "feat",
+    "fix",
+    "docs",
+    "style",
+    "refactor",
+    "perf",
+    "test",
+    "build",
+    "ci",
+    "chore",
+    "revert",
+)
+SUBJECT_MAX_LEN = 72
+SUBJECT_RE = re.compile(
+    r"^(?:" + "|".join(CONVENTIONAL_TYPES) + r")(?:\([^)]+\))?!?: .+"
+)
+
+_FENCE_RE = re.compile(r"^```[\w-]*\s*$")
+_PREAMBLE_RE = re.compile(
+    r"^(?:here(?:'s| is)|commit message|suggested commit message)\b.*:\s*$",
+    re.IGNORECASE,
+)
 
 HOOK_SCRIPT_CONTENT = """#!/usr/bin/env bash
 COMMIT_MSG_FILE=$1
@@ -158,18 +183,81 @@ def get_diff() -> str:
         return ""
 
 
+def build_prompt(diff: str) -> str:
+    """The single Conventional Commit spec shared by every provider."""
+    return f"""You write Git commit messages that follow the Conventional Commits specification.
+
+Write one commit message describing the diff below.
+
+Subject line:
+- format: <type>(<optional scope>): <description>
+- type must be one of: {", ".join(CONVENTIONAL_TYPES)}
+- use the imperative mood ("add", not "added" or "adds")
+- start the description in lowercase and do not end it with a period
+- keep the whole subject line under {SUBJECT_MAX_LEN} characters
+
+Body (optional, include only when the change needs explanation):
+- separate it from the subject with one blank line
+- wrap lines at 72 characters
+- use "- " bullets for distinct changes
+
+Output rules:
+- output the raw commit message only
+- no markdown code fences and no backticks around the message
+- no preamble, commentary, or explanation of your answer
+
+Diff:
+{diff}
+"""
+
+
+def normalize_message(raw: str) -> str:
+    """Strips model chatter (fences, preambles) and fixes commit layout."""
+    text = (raw or "").strip()
+    if not text:
+        return ""
+
+    lines = text.splitlines()
+
+    # Unfence: ```, ```text or ```gitcommit wrapping the whole message.
+    if lines and _FENCE_RE.match(lines[0]):
+        lines = lines[1:]
+        while lines and not lines[-1].strip():
+            lines.pop()
+        if lines and _FENCE_RE.match(lines[-1]):
+            lines.pop()
+
+    # Drop a leading "Here is the commit message:" style preamble.
+    while lines and not lines[0].strip():
+        lines.pop(0)
+    if lines and _PREAMBLE_RE.match(lines[0].strip()):
+        lines = lines[1:]
+        while lines and not lines[0].strip():
+            lines.pop(0)
+
+    if not lines:
+        return ""
+
+    # Subject carries no trailing period.
+    subject = lines[0].strip()
+    if subject.endswith(".") and not subject.endswith("..."):
+        subject = subject[:-1]
+    lines[0] = subject
+
+    # A body must be separated from the subject by exactly one blank line.
+    if len(lines) > 1 and lines[1].strip():
+        lines.insert(1, "")
+
+    return re.sub(r"\n{3,}", "\n\n", "\n".join(lines)).strip()
+
+
 def call_deepseek(diff: str, api_key: str, model: str) -> str:
     url = "https://api.deepseek.com/chat/completions"
     headers = {
         "Content-Type": "application/json",
         "Authorization": f"Bearer {api_key}",
     }
-    prompt = f"""
-    You are a helpful assistant that writes concise Git commit messages.
-    Write a commit message that describes the following diff, following Conventional Commit format.
-    Diff:
-    {diff}
-    """
+    prompt = build_prompt(diff)
     data = {
         "model": model,
         "messages": [{"role": "system", "content": prompt}],
@@ -199,14 +287,7 @@ def call_gemini(diff: str, api_key: str, model: str) -> str:
 
     headers = {"Content-Type": "application/json"}
 
-    prompt = f"""
-    You are a helpful assistant that writes concise Git commit messages.
-    Write a commit message that describes the following diff, following Conventional Commit format.
-    Do not include markdown code blocks (like ```) in the output, just the raw message.
-
-    Diff:
-    {diff}
-    """
+    prompt = build_prompt(diff)
 
     # Gemini payload structure
     data = {"contents": [{"parts": [{"text": prompt}]}]}
@@ -239,9 +320,21 @@ def generate_message(
         )
 
         if provider == AIProvider.DEEPSEEK:
-            return call_deepseek(diff, api_key, model_name)
+            raw = call_deepseek(diff, api_key, model_name)
         elif provider == AIProvider.GEMINI:
-            return call_gemini(diff, api_key, model_name)
+            raw = call_gemini(diff, api_key, model_name)
+        else:
+            return ""
+
+        message = normalize_message(raw)
+        if message and not SUBJECT_RE.match(message.splitlines()[0]):
+            typer.echo(
+                "Warning: subject is not a Conventional Commit subject "
+                "(<type>(<scope>): <description>, type one of "
+                f"{', '.join(CONVENTIONAL_TYPES)}).",
+                err=True,
+            )
+        return message
 
     except requests.exceptions.RequestException as e:
         typer.echo(f"Error: API request failed. {e}", err=True)

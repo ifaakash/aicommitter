@@ -2,15 +2,31 @@
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Status](https://img.shields.io/badge/status-active-success)
 
-### Unreleased
-
-##### Added
-- Badge support in the `README.md`
-
-##### Added
-- Included the reference to `CHANGELOG.md` file in `README.md`
-
 ### Version History
+
+## [1.2.0] - 2026-09-28
+### Added
+- Shared `build_prompt()` so DeepSeek and Gemini receive one identical
+  Conventional Commit spec (types, scope, imperative subject, 72-char limit)
+- `normalize_message()` sanitizer applied at a single call site: strips markdown
+  code fences and "here is the commit message" preambles, collapses excess blank
+  lines, enforces a blank line between subject and body, drops a trailing period
+- Warning on stderr when a generated subject is not a Conventional Commit subject
+### Fixed
+- Markdown code fences could reach a real commit subject, because only the Gemini
+  prompt forbade them and no output was ever validated
+
+## [1.1.0] - 2026-09-18
+### Changed
+- Removed the obsolete Gemini model; default is now `gemini-2.5-flash-lite`
+
+## [1.0.9] - 2026-04-25
+### Added
+- `--yes` / `-y` to skip the commit confirmation prompt
+- `--push` / `-P` to push to the current branch after committing (implies `--commit`)
+- Dynamic versioning via `importlib.metadata`, making `pyproject.toml` the single
+  source of truth
+- Badge support and a `CHANGELOG.md` reference in `README.md`
 
 ## [1.0.8] - 2026-04-25
 ### Fixed

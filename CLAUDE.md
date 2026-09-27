@@ -53,9 +53,17 @@ Explicit `--provider` requires the matching env var and errors out if absent. Ot
 
 `--push` implies `--commit`. `--yes` only bypasses the confirm prompt — without `--commit`/`--push` it does nothing, since the commit branch is never entered.
 
+### Message formatting
+
+Format is specified in exactly one place: `build_prompt()` builds the Conventional Commit spec (allowed types from `CONVENTIONAL_TYPES`, imperative subject, `SUBJECT_MAX_LEN` = 72, no fences/preamble) and both providers send that same text — DeepSeek as its single `system` message, Gemini as its single `contents[0].parts[0].text`.
+
+Every generated message then passes `normalize_message()`, called once in `generate_message()` around the dispatch so no provider can bypass it: unfence, de-preamble, collapse blank-line runs, force a blank line between subject and body, drop a trailing period. If the result's subject fails `SUBJECT_RE`, a warning goes to **stderr** and the message is still returned — a hard failure would break `-y` automation, and stderr keeps the stdout contract the hook depends on intact.
+
+Add format rules to `build_prompt()` (what the model should do) and repairs to `normalize_message()` (what to fix when it doesn't). Do not add either to a provider function.
+
 ### Error-handling asymmetry
 
-`call_deepseek()` swallows request exceptions and **returns an error string as if it were the commit message**. `call_gemini()` lets `raise_for_status()` propagate to the `RequestException` handler in `generate_message()`. Any change to provider error handling should reckon with this difference rather than copying either side blindly.
+`call_deepseek()` swallows request exceptions and **returns an error string as if it were the commit message**. `call_gemini()` lets `raise_for_status()` propagate to the `RequestException` handler in `generate_message()`. The subject validation above now warns on those DeepSeek error strings, but does not stop them being committed — the asymmetry itself is still unfixed.
 
 ## Gotchas
 
@@ -67,4 +75,4 @@ Explicit `--provider` requires the matching env var and errors out if absent. Ot
 
 `pyproject.toml` is the single source of truth — `--version` reads installed distribution metadata via `importlib.metadata.version("aicommitter")`, and `src/aicommitter/__init__.py` is intentionally empty. After bumping the version, re-run `pip install -e .` or `--version` still reports the previously installed value.
 
-The docs are *not* auto-derived and currently drift: `pyproject.toml` is at `1.1.0`, `README.md` badge and "Latest Release" say `1.0.9`, and `CHANGELOG.md`'s badge says `1.2.0` while its newest entry is `1.0.8`. A release means updating all four spots (pyproject, README badge, README "Latest Release", CHANGELOG entry).
+The docs are *not* auto-derived, so a release means updating four spots by hand, all currently at `1.2.0`: `pyproject.toml`, the `README.md` badge, the README "Latest Release" section, and a `CHANGELOG.md` entry (plus its own version badge). These drifted apart across 1.0.9-1.1.0; keep them in step.
