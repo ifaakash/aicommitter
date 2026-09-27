@@ -6,13 +6,21 @@ export DEEPSEEK_API_KEY="sk-..."
 export GEMINI_API_KEY="sk-..."
 
 STEP 2:
-aicommit install
+aicommitter doctor
+
+Confirms your API key is picked up. It prints where the key came from and,
+with --live, asks the provider whether the key is actually accepted:
+
+aicommitter doctor --live
 
 STEP 3:
-git add .
+aicommitter install
 
 STEP 4:
-aicommit generate --commit
+git add .
+
+STEP 5:
+aicommitter generate --commit
 
 ==========================================
 
