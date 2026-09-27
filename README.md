@@ -43,6 +43,120 @@ For every commit after setup:
    aicommitter generate --commit
    ```
 
+## Building & Publishing
+
+For maintainers cutting a release to PyPI.
+
+**Before you build**, bump the version in all four places — they are not derived from each other:
+`pyproject.toml`, the release badge above, the [Latest Release](#latest-release) section, and a new `CHANGELOG.md` entry.
+
+Requires the release toolchain: `pip install --upgrade build twine`
+
+1. **Clean stale artifacts**
+   Old builds in `dist/` get picked up by `twine upload dist/*` and will publish the wrong version<br>
+   ```bash
+   rm -rf dist/ build/ src/*.egg-info src/aicommitter/*.egg-info
+   ```
+
+2. **Build the distributions**
+   Produces both an sdist and a wheel<br>
+   ```bash
+   python -m build
+   ```
+
+3. **Verify what was built**
+   Confirm only the new version is present, that `resources/docs.md` is bundled, and that the metadata is valid<br>
+   ```bash
+   ls dist/
+   python -m zipfile -l dist/aicommitter-*-py3-none-any.whl | grep docs.md
+   twine check dist/*
+   ```
+   The `docs.md` check is not optional — it ships only via `[tool.setuptools.package-data]`, and a missing copy is what broke `aicommitter docs` in 1.0.5.
+
+4. **Upload to TestPyPI first (recommended)**
+   PyPI versions are immutable, so each version number can only ever be uploaded once<br>
+   ```bash
+   twine upload --repository testpypi dist/*
+   pip install --index-url https://test.pypi.org/simple/ --no-deps aicommitter==<version>
+   ```
+
+5. **Publish to PyPI**
+   Authenticate with `__token__` as the username and a PyPI API token as the password<br>
+   ```bash
+   twine upload dist/*
+   ```
+
+Create an API token at [pypi.org/manage/account/token](https://pypi.org/manage/account/token/). To avoid re-entering it, store it in `~/.pypirc`:
+
+```ini
+[pypi]
+username = __token__
+password = pypi-xxxxxxxxxxxx
+```
+
+<details>
+<summary><b>Building inside a virtual environment</b> (recommended, and required on externally managed Python)</summary>
+
+<br>
+
+Most current Python installs — Homebrew, Debian/Ubuntu, and python.org 3.12+ — are marked *externally managed*, so installing the build tools globally fails:
+
+```
+error: externally-managed-environment
+× This environment is externally managed
+```
+
+A virtual environment gives the build its own isolated `site-packages`, so `build` and `twine` never touch your system Python and cannot collide with other projects' dependency versions.
+
+**1. Create the virtual environment** — once per clone. `.venv` is already in `.gitignore`:
+
+```bash
+python3 -m venv .venv
+```
+
+**2. Install the release toolchain into it:**
+
+```bash
+.venv/bin/pip install --upgrade build twine
+```
+
+**3. Run the build steps through it** — prefix each command with `.venv/bin/` so the venv's interpreter and tools are used:
+
+```bash
+rm -rf dist/ build/ src/*.egg-info src/aicommitter/*.egg-info
+.venv/bin/python -m build
+.venv/bin/twine check dist/*
+.venv/bin/twine upload dist/*
+```
+
+Prefixing with `.venv/bin/` works without activating anything. If you would rather activate the environment and drop the prefix:
+
+```bash
+source .venv/bin/activate     # Windows: .venv\Scripts\activate
+python -m build
+twine check dist/*
+twine upload dist/*
+deactivate                    # when finished
+```
+
+**Testing the built package in the venv** without publishing it, which also verifies the console entry point:
+
+```bash
+.venv/bin/pip install dist/aicommitter-*-py3-none-any.whl
+.venv/bin/aicommitter --version
+.venv/bin/aicommitter docs
+```
+
+Note that `aicommitter --version` reads installed distribution metadata, so after a version bump you must reinstall (`.venv/bin/pip install -e .`) before it reports the new number.
+
+To start over at any point, delete and recreate it — a venv is disposable:
+
+```bash
+rm -rf .venv
+```
+
+</details>
+
 ## Changelog
 
 See [CHANGELOG.md](CHANGELOG.md) for a [detailed history](https://libraries.io/pypi/aicommitter) of changes. View on [PyPI](https://pypi.org/project/aicommitter/).
